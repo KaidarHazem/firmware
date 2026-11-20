@@ -1,4 +1,5 @@
 #include "main_menu.h"
+#include "../modules/others/audio_player.h"
 #include "display.h"
 #include "utils.h"
 #include <globals.h>
@@ -89,6 +90,24 @@ void MainMenu::begin(void) {
             );
         }
     }
+
+    options.push_back({
+        "Cyber Music",
+        []() {
+            if (sdcardMounted && SD.exists("/music.mp3")) {
+                musicPlayerUI(&SD, "/music.mp3");
+            } else if (sdcardMounted && SD.exists("/test.mp3")) {
+                musicPlayerUI(&SD, "/test.mp3");
+            } else if (LittleFS.exists("/music.mp3")) {
+                musicPlayerUI(&LittleFS, "/music.mp3");
+            } else {
+                musicPlayerUI(sdcardMounted ? (FS *)&SD : (FS *)&LittleFS, "/");
+            }
+        },
+        false,
+        renderItem,
+        &othersMenu
+    });
 
     // The grid needs a fresh full repaint every time we come back to the main menu,
     // since loopOptions clears the screen before the first render.
