@@ -1,8 +1,33 @@
 #include "main_menu.h"
-#include "../modules/others/audio_player.h"
+#include "../modules/others/audio.h"
 #include "display.h"
 #include "utils.h"
 #include <globals.h>
+
+static void launchCyberMusic() {
+    if (sdcardMounted && SD.exists("/music.mp3")) {
+        playAudioFile(&SD, "/music.mp3");
+        return;
+    }
+    if (sdcardMounted && SD.exists("/test.mp3")) {
+        playAudioFile(&SD, "/test.mp3");
+        return;
+    }
+    if (LittleFS.exists("/music.mp3")) {
+        playAudioFile(&LittleFS, "/music.mp3");
+        return;
+    }
+    tft.fillScreen(bruceConfig.bgColor);
+    tft.setTextColor(bruceConfig.priColor, bruceConfig.bgColor);
+    tft.setTextSize(FM);
+    tft.drawCentreString("Cyber Music", tftWidth / 2, 25, 1);
+    tft.setTextSize(FP);
+    tft.drawCentreString("Put /music.mp3 on SD or LittleFS", tftWidth / 2, 55, 1);
+    tft.drawCentreString("Press BACK to return", tftWidth / 2, 75, 1);
+    while (!check(EscPress)) {
+        delay(20);
+    }
+}
 
 MainMenu::MainMenu() {
     _menuItems = {
@@ -93,17 +118,7 @@ void MainMenu::begin(void) {
 
     options.push_back({
         "Cyber Music",
-        []() {
-            if (sdcardMounted && SD.exists("/music.mp3")) {
-                musicPlayerUI(&SD, "/music.mp3");
-            } else if (sdcardMounted && SD.exists("/test.mp3")) {
-                musicPlayerUI(&SD, "/test.mp3");
-            } else if (LittleFS.exists("/music.mp3")) {
-                musicPlayerUI(&LittleFS, "/music.mp3");
-            } else {
-                musicPlayerUI(sdcardMounted ? (FS *)&SD : (FS *)&LittleFS, "/");
-            }
-        },
+        launchCyberMusic,
         false,
         renderItem,
         &othersMenu
