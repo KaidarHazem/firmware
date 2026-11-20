@@ -4,68 +4,36 @@
 #include <globals.h>
 
 static void launchCyberMusic() {
-    bool hasSdMusic = sdcardMounted && (SD.exists("/music.mp3") || SD.exists("/test.mp3"));
-    bool hasFlashMusic = LittleFS.exists("/music.mp3");
-
+    bool found = (sdcardMounted && (SD.exists("/music.mp3") || SD.exists("/test.mp3"))) || LittleFS.exists("/music.mp3");
     tft.fillScreen(bruceConfig.bgColor);
     tft.setTextColor(bruceConfig.priColor, bruceConfig.bgColor);
     tft.setTextSize(FM);
-    tft.drawCentreString("Cyber Music", tftWidth / 2, 18, 1);
-
+    tft.drawCentreString("Cyber Music", tftWidth / 2, 20, 1);
     tft.setTextSize(FP);
-    if (hasSdMusic) {
-        tft.drawCentreString("SD Audio Found", tftWidth / 2, 46, 1);
-    } else if (hasFlashMusic) {
-        tft.drawCentreString("LittleFS Audio Found", tftWidth / 2, 46, 1);
-    } else {
-        tft.drawCentreString("No Audio File Found", tftWidth / 2, 46, 1);
-    }
-    tft.drawCentreString("Press BACK to return", tftWidth / 2, 74, 1);
-
-    while (!check(EscPress)) {
-        delay(20);
-    }
+    tft.drawCentreString(found ? "Audio Ready" : "No Audio", tftWidth / 2, 52, 1);
+    while (!check(EscPress)) delay(20);
 }
 
 static void launchGamesMenu() {
     const char *games[] = {"Snake", "Pong"};
-    const int gameCount = 2;
-    int selected = 0;
+    int sel = 0;
     bool redraw = true;
 
     while (!check(EscPress)) {
-        if (check(PrevPress) || check(UpPress)) {
-            selected = (selected - 1 + gameCount) % gameCount;
-            redraw = true;
-        }
-        if (check(NextPress) || check(DownPress)) {
-            selected = (selected + 1) % gameCount;
-            redraw = true;
-        }
+        if (check(PrevPress) || check(UpPress)) { sel = (sel + 1) % 2; redraw = true; }
+        if (check(NextPress) || check(DownPress)) { sel = (sel + 1) % 2; redraw = true; }
         if (check(SelPress)) {
             tft.fillScreen(bruceConfig.bgColor);
-            tft.setTextColor(bruceConfig.priColor, bruceConfig.bgColor);
-            tft.setTextSize(FM);
-            tft.drawCentreString(games[selected], tftWidth / 2, 24, 1);
-            tft.setTextSize(FP);
-            tft.drawCentreString("Game Ready - BACK to exit", tftWidth / 2, 58, 1);
-            while (!check(EscPress)) {
-                delay(20);
-            }
+            tft.drawCentreString(games[sel], tftWidth / 2, 40, 1);
+            while (!check(EscPress)) delay(20);
             redraw = true;
         }
-
         if (redraw) {
             tft.fillScreen(bruceConfig.bgColor);
-            tft.setTextColor(bruceConfig.priColor, bruceConfig.bgColor);
-            tft.setTextSize(FM);
-            tft.drawCentreString("Games", tftWidth / 2, 12, 1);
-            tft.setTextSize(FP);
-            for (int i = 0; i < gameCount; i++) {
-                String line = (i == selected ? "> " : "  ") + String(games[i]);
-                tft.drawCentreString(line, tftWidth / 2, 44 + i * 18, 1);
+            tft.drawCentreString("Games", tftWidth / 2, 14, 1);
+            for (int i = 0; i < 2; i++) {
+                tft.drawCentreString((i == sel ? "> " : "  ") + String(games[i]), tftWidth / 2, 44 + i * 18, 1);
             }
-            tft.drawCentreString("UP/DN: Move | OK: Open | BACK", tftWidth / 2, 92, 1);
             redraw = false;
         }
         delay(20);
@@ -119,8 +87,6 @@ void MainMenu::begin(void) {
 
     bool gridStyle = bruceConfig.mainMenuStyle == MAIN_MENU_GRID;
 
-    // Option::hover is a plain function pointer, so both renderers stay capture-less
-    // and the grid one resolves its own position from the item pointer it receives.
     bool (*renderItem)(void *menuItem, bool shouldRender) = [](void *menuItem, bool shouldRender) {
         if (!shouldRender) return false;
         drawMainBorder(false);
@@ -146,37 +112,20 @@ void MainMenu::begin(void) {
     std::vector<String> l = bruceConfig.disabledMenus;
     for (int i = 0; i < _totalItems; i++) {
         String itemName = _menuItems[i]->getName();
-        if (find(l.begin(), l.end(), itemName) == l.end()) { // If menu item is not disabled
+        if (find(l.begin(), l.end(), itemName) == l.end()) {
             options.push_back(
-                {// selected lambda
-                 itemName,
+                {itemName,
                  [this, i]() { _menuItems[i]->optionsMenu(); },
-                 false, // selected = false
+                 false,
                  renderItem,
-                 _menuItems[i]
-                }
+                 _menuItems[i]}
             );
         }
     }
 
-    options.push_back({
-        "Cyber Music",
-        launchCyberMusic,
-        false,
-        renderItem,
-        &othersMenu
-    });
+    options.push_back({"Cyber Music", launchCyberMusic, false, renderItem, &othersMenu});
+    options.push_back({"Games", launchGamesMenu, false, renderItem, &othersMenu});
 
-    options.push_back({
-        "Games",
-        launchGamesMenu,
-        false,
-        renderItem,
-        &othersMenu
-    });
-
-    // The grid needs a fresh full repaint every time we come back to the main menu,
-    // since loopOptions clears the screen before the first render.
     if (gridStyle) {
         buildGridLayout(options.size());
         _gridScroll = 0;
@@ -188,14 +137,8 @@ void MainMenu::begin(void) {
     }
 
     _currentIndex = loopOptions(options, MENU_TYPE_MAIN, "Main Menu", _currentIndex);
-};
+}
 
-/*********************************************************************
-**  Function: gridIndexOf
-**  Position of a menu item inside the currently built options list.
-**  The hover callback is a plain function pointer and cannot capture the
-**  index, so it is resolved back from the item pointer it receives.
-**********************************************************************/
 int MainMenu::gridIndexOf(MenuItemInterface *item) {
     for (size_t i = 0; i < options.size(); i++) {
         if (options[i].hoverPointer == item) return (int)i;
@@ -203,32 +146,18 @@ int MainMenu::gridIndexOf(MenuItemInterface *item) {
     return 0;
 }
 
-/*********************************************************************
-**  Function: buildGridLayout
-**  Picks the column count that makes cells (and therefore icons) as large as possible for the
-**  available area, instead of just cramming in as many columns as fit at the minimum size. Only
-**  falls back to the minimum size, with paging, once even one column can't make cells that big.
-**********************************************************************/
 void MainMenu::buildGridLayout(int itemCount) {
-    // Floor so a cell never gets too small to tap/read — this is what triggers paging, not a
-    // preferred size. Scaled by FP so it still means something on high-res boards.
     const int MIN_CELL_W = 54 * FP;
     const int MIN_CELL_H = 40 * FP;
-    // Right-edge column reserved for the scrollbar and the page-up/page-down tap zone (see
-    // MainMenu::handleGridPageTap()) — wide enough to actually tap, not just the 3px bar itself.
     const int PAGE_TAP_W = 4 * BORDER_OFFSET_FROM_SCREEN_EDGE;
 
     if (itemCount < 1) itemCount = 1;
 
     int areaX = BORDER_OFFSET_FROM_SCREEN_EDGE + 2;
-    int areaY = STATUS_BAR_HEIGHT - 2; // first line free under the status bar separator
+    int areaY = STATUS_BAR_HEIGHT - 2;
     int areaW = tftWidth - 2 * areaX - PAGE_TAP_W;
     int areaH = tftHeight - areaY - areaX;
 
-    // Try every column count down to the MIN_CELL_W floor and keep the one whose resulting cells
-    // are largest in their smaller dimension (min(cellW, cellH)) — that's what a lopsided grid
-    // wastes: a handful of very wide, short rows or very tall, narrow columns both score low here,
-    // while a balanced, roughly-square cell that actually fills the screen scores high.
     int maxCols = max(1, min(itemCount, areaW / MIN_CELL_W));
     int bestCols = 1;
     int bestScore = -1;
@@ -245,19 +174,15 @@ void MainMenu::buildGridLayout(int itemCount) {
     _grid.cellW = areaW / _grid.cols;
     _grid.rows = (itemCount + _grid.cols - 1) / _grid.cols;
 
-    // Rows still get capped to what fits at MIN_CELL_H — that's the paging trigger when there
-    // are simply too many items for one screen even at the smallest usable size.
     _grid.visibleRows = max(1, areaH / MIN_CELL_H);
     if (_grid.visibleRows > _grid.rows) _grid.visibleRows = _grid.rows;
-    _grid.cellH = areaH / _grid.visibleRows; // fills whatever height is actually available
+    _grid.cellH = areaH / _grid.visibleRows;
 
     _grid.labelSize = _grid.cellW >= 8 * LW * FM ? FM : FP;
-    // Everything the cell has left once the label and a thin margin are taken out
     _grid.iconBox = _grid.cellH - LH * _grid.labelSize - 6;
-    if (_grid.iconBox > _grid.cellW - 4) _grid.iconBox = _grid.cellW - 4; // narrow cells cap it
+    if (_grid.iconBox > _grid.cellW - 4) _grid.iconBox = _grid.cellW - 4;
     if (_grid.iconBox < 12) _grid.iconBox = 12;
 
-    // Center whatever is left over so the grid doesn't hug the border
     _grid.x = areaX + (areaW - _grid.cols * _grid.cellW) / 2;
     _grid.y = areaY + (areaH - _grid.visibleRows * _grid.cellH) / 2;
 
@@ -265,11 +190,6 @@ void MainMenu::buildGridLayout(int itemCount) {
     _gridRotation = bruceConfigPins.rotation;
 }
 
-/*********************************************************************
-**  Function: drawGrid
-**  Draws the module grid highlighting `index`. Only the two cells that
-**  changed are repainted unless the whole view has to come back.
-**********************************************************************/
 void MainMenu::drawGrid(int index) {
     int itemCount = options.size();
     if (itemCount < 1) return;
@@ -282,7 +202,6 @@ void MainMenu::drawGrid(int index) {
         _gridRedrawAll = true;
     }
 
-    // Keep the selected cell inside the visible window
     int scroll = _gridScroll;
     int row = index / _grid.cols;
     if (row < scroll) scroll = row;
@@ -292,8 +211,6 @@ void MainMenu::drawGrid(int index) {
     _gridScroll = scroll;
 
     if (redrawAll) {
-        // Cells scrolled out of the visible window won't get a drawGridCell() call below to refresh
-        // their tap rect, so clear everyone's first (mirrors drawOptions()'s same stale-rect concern).
         for (auto &opt : options) {
             opt.w = 0;
             opt.h = 0;
@@ -319,10 +236,6 @@ void MainMenu::drawGrid(int index) {
     _gridRedrawAll = false;
 }
 
-/*********************************************************************
-**  Function: drawGridCell
-**  Paints a single module cell, inverted when it is the selected one
-**********************************************************************/
 void MainMenu::drawGridCell(int index, bool selected) {
     int row = index / _grid.cols - _gridScroll;
     int col = index % _grid.cols;
@@ -357,10 +270,6 @@ void MainMenu::drawGridCell(int index, bool selected) {
     );
 }
 
-/*********************************************************************
-**  Function: drawGridScrollBar
-**  Thin indicator on the right telling there are more rows off screen
-**********************************************************************/
 void MainMenu::drawGridScrollBar() {
     int barX = tftWidth - BORDER_OFFSET_FROM_SCREEN_EDGE - 4;
     int trackY = _grid.y;
@@ -374,14 +283,8 @@ void MainMenu::drawGridScrollBar() {
     tft.fillRect(barX, thumbY, 3, thumbH, bruceConfig.priColor);
 }
 
-/*********************************************************************
-**  Function: handleGridPageTap
-**  Right-edge strip (see PAGE_TAP_W in buildGridLayout): tapping the top half jumps a full page
-**  up, the bottom half a full page down. Needed because a tap can only select a cell that's
-**  already on screen, unlike Prev/Next which auto-scroll into view one cell at a time.
-**********************************************************************/
 bool MainMenu::handleGridPageTap(int x, int y, int currentIndex, int &newIndex) {
-    if (_grid.rows <= _grid.visibleRows) return false; // everything already fits on one page
+    if (_grid.rows <= _grid.visibleRows) return false;
 
     int zoneX = _grid.x + _grid.cols * _grid.cellW;
     int zoneY = _grid.y;
@@ -393,22 +296,16 @@ bool MainMenu::handleGridPageTap(int x, int y, int currentIndex, int &newIndex) 
     int targetScroll = (y < zoneY + zoneH / 2) ? max(0, _gridScroll - _grid.visibleRows)
                                                : min(maxScroll, _gridScroll + _grid.visibleRows);
 
-    // Keep the same column, jump to the first row of the new page.
     int col = currentIndex % _grid.cols;
     int itemCount = static_cast<int>(options.size());
     newIndex = min(targetScroll * _grid.cols + col, itemCount - 1);
     return true;
 }
 
-/*********************************************************************
-**  Function: hideAppsMenu
-**  Menu to Hide or show menus
-**********************************************************************/
-
 void MainMenu::hideAppsMenu() {
     auto items = this->getItems();
     int index = 0;
-RESTART: // using gotos to avoid stackoverflow after many choices
+RESTART:
     options.clear();
     for (auto item : items) {
         String label = item->getName();
