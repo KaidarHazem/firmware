@@ -10,29 +10,6 @@ static void launchCyberMusic() {
     while (!check(EscPress)) delay(20);
 }
 
-static void launchGamesMenu() {
-    bool sel = false;
-    bool redraw = true;
-    while (!check(EscPress)) {
-        if (check(PrevPress) || check(UpPress) || check(NextPress) || check(DownPress)) {
-            sel = !sel;
-            redraw = true;
-        }
-        if (check(SelPress)) {
-            tft.fillScreen(bruceConfig.bgColor);
-            tft.drawString(sel ? "Pong" : "Snake", 10, 20);
-            while (!check(EscPress)) delay(20);
-            redraw = true;
-        }
-        if (redraw) {
-            tft.fillScreen(bruceConfig.bgColor);
-            tft.drawString(sel ? "  Snake\n> Pong" : "> Snake\n  Pong", 10, 20);
-            redraw = false;
-        }
-        delay(20);
-    }
-}
-
 MainMenu::MainMenu() {
     _menuItems = {
         &wifiMenu,
@@ -117,7 +94,6 @@ void MainMenu::begin(void) {
     }
 
     options.push_back({"Cyber Music", launchCyberMusic, false, renderItem, &othersMenu});
-    options.push_back({"Games", launchGamesMenu, false, renderItem, &othersMenu});
 
     if (gridStyle) {
         buildGridLayout(options.size());
