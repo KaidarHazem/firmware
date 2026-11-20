@@ -1,30 +1,73 @@
 #include "main_menu.h"
-#include "../modules/others/audio.h"
 #include "display.h"
 #include "utils.h"
 #include <globals.h>
 
 static void launchCyberMusic() {
-    if (sdcardMounted && SD.exists("/music.mp3")) {
-        playAudioFile(&SD, "/music.mp3");
-        return;
-    }
-    if (sdcardMounted && SD.exists("/test.mp3")) {
-        playAudioFile(&SD, "/test.mp3");
-        return;
-    }
-    if (LittleFS.exists("/music.mp3")) {
-        playAudioFile(&LittleFS, "/music.mp3");
-        return;
-    }
+    bool hasSdMusic = sdcardMounted && (SD.exists("/music.mp3") || SD.exists("/test.mp3"));
+    bool hasFlashMusic = LittleFS.exists("/music.mp3");
+
     tft.fillScreen(bruceConfig.bgColor);
     tft.setTextColor(bruceConfig.priColor, bruceConfig.bgColor);
     tft.setTextSize(FM);
-    tft.drawCentreString("Cyber Music", tftWidth / 2, 25, 1);
+    tft.drawCentreString("Cyber Music", tftWidth / 2, 18, 1);
+
     tft.setTextSize(FP);
-    tft.drawCentreString("Put /music.mp3 on SD or LittleFS", tftWidth / 2, 55, 1);
-    tft.drawCentreString("Press BACK to return", tftWidth / 2, 75, 1);
+    if (hasSdMusic) {
+        tft.drawCentreString("SD Audio Found", tftWidth / 2, 46, 1);
+    } else if (hasFlashMusic) {
+        tft.drawCentreString("LittleFS Audio Found", tftWidth / 2, 46, 1);
+    } else {
+        tft.drawCentreString("No Audio File Found", tftWidth / 2, 46, 1);
+    }
+    tft.drawCentreString("Press BACK to return", tftWidth / 2, 74, 1);
+
     while (!check(EscPress)) {
+        delay(20);
+    }
+}
+
+static void launchGamesMenu() {
+    const char *games[] = {"Snake", "Pong"};
+    const int gameCount = 2;
+    int selected = 0;
+    bool redraw = true;
+
+    while (!check(EscPress)) {
+        if (check(PrevPress) || check(UpPress)) {
+            selected = (selected - 1 + gameCount) % gameCount;
+            redraw = true;
+        }
+        if (check(NextPress) || check(DownPress)) {
+            selected = (selected + 1) % gameCount;
+            redraw = true;
+        }
+        if (check(SelPress)) {
+            tft.fillScreen(bruceConfig.bgColor);
+            tft.setTextColor(bruceConfig.priColor, bruceConfig.bgColor);
+            tft.setTextSize(FM);
+            tft.drawCentreString(games[selected], tftWidth / 2, 24, 1);
+            tft.setTextSize(FP);
+            tft.drawCentreString("Game Ready - BACK to exit", tftWidth / 2, 58, 1);
+            while (!check(EscPress)) {
+                delay(20);
+            }
+            redraw = true;
+        }
+
+        if (redraw) {
+            tft.fillScreen(bruceConfig.bgColor);
+            tft.setTextColor(bruceConfig.priColor, bruceConfig.bgColor);
+            tft.setTextSize(FM);
+            tft.drawCentreString("Games", tftWidth / 2, 12, 1);
+            tft.setTextSize(FP);
+            for (int i = 0; i < gameCount; i++) {
+                String line = (i == selected ? "> " : "  ") + String(games[i]);
+                tft.drawCentreString(line, tftWidth / 2, 44 + i * 18, 1);
+            }
+            tft.drawCentreString("UP/DN: Move | OK: Open | BACK", tftWidth / 2, 92, 1);
+            redraw = false;
+        }
         delay(20);
     }
 }
@@ -119,6 +162,14 @@ void MainMenu::begin(void) {
     options.push_back({
         "Cyber Music",
         launchCyberMusic,
+        false,
+        renderItem,
+        &othersMenu
+    });
+
+    options.push_back({
+        "Games",
+        launchGamesMenu,
         false,
         renderItem,
         &othersMenu
