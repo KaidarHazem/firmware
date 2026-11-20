@@ -4,36 +4,29 @@
 #include <globals.h>
 
 static void launchCyberMusic() {
-    bool found = (sdcardMounted && (SD.exists("/music.mp3") || SD.exists("/test.mp3"))) || LittleFS.exists("/music.mp3");
     tft.fillScreen(bruceConfig.bgColor);
     tft.setTextColor(bruceConfig.priColor, bruceConfig.bgColor);
-    tft.setTextSize(FM);
-    tft.drawCentreString("Cyber Music", tftWidth / 2, 20, 1);
-    tft.setTextSize(FP);
-    tft.drawCentreString(found ? "Audio Ready" : "No Audio", tftWidth / 2, 52, 1);
+    tft.drawString("Cyber Music", 10, 20);
     while (!check(EscPress)) delay(20);
 }
 
 static void launchGamesMenu() {
-    const char *games[] = {"Snake", "Pong"};
-    int sel = 0;
+    bool sel = false;
     bool redraw = true;
-
     while (!check(EscPress)) {
-        if (check(PrevPress) || check(UpPress)) { sel = (sel + 1) % 2; redraw = true; }
-        if (check(NextPress) || check(DownPress)) { sel = (sel + 1) % 2; redraw = true; }
+        if (check(PrevPress) || check(UpPress) || check(NextPress) || check(DownPress)) {
+            sel = !sel;
+            redraw = true;
+        }
         if (check(SelPress)) {
             tft.fillScreen(bruceConfig.bgColor);
-            tft.drawCentreString(games[sel], tftWidth / 2, 40, 1);
+            tft.drawString(sel ? "Pong" : "Snake", 10, 20);
             while (!check(EscPress)) delay(20);
             redraw = true;
         }
         if (redraw) {
             tft.fillScreen(bruceConfig.bgColor);
-            tft.drawCentreString("Games", tftWidth / 2, 14, 1);
-            for (int i = 0; i < 2; i++) {
-                tft.drawCentreString((i == sel ? "> " : "  ") + String(games[i]), tftWidth / 2, 44 + i * 18, 1);
-            }
+            tft.drawString(sel ? "  Snake\n> Pong" : "> Snake\n  Pong", 10, 20);
             redraw = false;
         }
         delay(20);
